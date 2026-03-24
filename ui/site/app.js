@@ -1,0 +1,135 @@
+const API = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || "http://localhost:8000";
+ 
+const chatEl = document.getElementById("chat");
+const statusEl = document.getElementById("status");
+const syncBtn = document.getElementById("syncBtn");
+const sendBtn = document.getElementById("sendBtn");
+const qInput = document.getElementById("q");
+const wantChartEl = document.getElementById("wantChart");
+const sourcesList = document.getElementById("sourcesList");
+ 
+let chart = echarts.init(document.getElementById("chart"));
+window.addEventListener("resize", () => chart.resize());
+ 
+function setStatus(t){ statusEl.textContent = t; }
+function addMsg(role, text){
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="role">${role}</div><div class="text"></div>`;
+  div.querySelector(".text").textContent = text;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function escapeHtml(s){ return (s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+function renderSources(cits){
+  if(!cits || !cits.length){ sourcesList.textContent="No sources."; return; }
+  sourcesList.innerHTML = cits.slice(0,5).map(c =>
+    `<div>• <a href="${c.url}" target="_blank" rel="noreferrer">${escapeHtml(c.title)}</a> <span style="opacity:.75">[${c.chunk_id}]</span></div>`
+  ).join("");
+}
+ 
+function toOption(spec){
+  const palette=["#86BC25","#007CB0","#046E38","#62B5E5","#BBBDBF","#ED8B00","#DA291C"];
+  const data = spec.data || [];
+  if(!data.length){
+    return {
+      title:{text: spec.title || "No chart data", left:"center", textStyle:{color:"#FFFFFF"}},
+      graphic:[{type:"text", left:"center", top:"middle", style:{text:"No numeric data found in retrieved context.", fill:"rgba(255,255,255,0.70)", fontSize:14}}]
+    };
+  }
+ 
+  const xVals=[...new Set(data.map(d=>d.x))];
+  const seriesNames=[...new Set(data.map(d=>d.series||"Series"))];
+ 
+  if(spec.chart_type==="pie"){
+    const pieData = xVals.map(x=>{
+      const ys=data.filter(d=>d.x===x).map(d=>d.y);
+      return {name:x, value: ys.reduce((a,b)=>a+b,0)};
+    });
+    return { color:palette,
+      title:{text:spec.title,left:"center",textStyle:{color:"#FFFFFF"}},
+      tooltip:{trigger:"item"},
+      legend:{bottom:0,textStyle:{color:"rgba(255,255,255,0.75)"}},
+      series:[{type:"pie", radius:"60%", data:pieData}]
+    };
+  }
+ 
+  const type = (spec.chart_type==="area") ? "line" : spec.chart_type;
+  const series = seriesNames.map(name => ({
+    name, type, smooth:true,
+    areaStyle: spec.chart_type==="area" ? {} : undefined,
+    data: xVals.map(x=>{
+      const f=data.find(d=>d.x===x && (d.series||"Series")===name);
+      return f ? f.y : null;
+    })
+  }));
+ 
+  return {
+    color:palette,
+    title:{text:spec.title,left:"center",textStyle:{color:"#FFFFFF"}},
+    tooltip:{trigger:"axis"},
+    legend:{bottom:0,textStyle:{color:"rgba(255,255,255,0.75)"}},
+    grid:{left:52,right:16,top:56,bottom:60},
+    xAxis:{type:"category",name:spec.x_label,data:xVals,
+      axisLabel:{color:"rgba(255,255,255,0.75)", rotate:(xVals.join("").length>24?30:0)},
+      nameTextStyle:{color:"rgba(255,255,255,0.75)"}},
+    yAxis:{type:"value",name: spec.units ? `${spec.y_label} (${spec.units})` : spec.y_label,
+      axisLabel:{color:"rgba(255,255,255,0.75)"},
+      splitLine:{lineStyle:{color:"rgba(255,255,255,0.08)"}},
+      nameTextStyle:{color:"rgba(255,255,255,0.75)"}},
+    series
+  };
+}
+ 
+async function sync(){
+  setStatus("Syncing...");
+  syncBtn.disabled=true;
+  try{
+    const r = await fetch(`${API}/sync?limit=25`, {method:"POST"});
+    const j = await r.json();
+    addMsg("assistant", `Synced ${j.pages} pages, ${j.chunks_ingested} chunks.`);
+  }catch(e){
+    addMsg("assistant", `Sync failed: ${e}`);
+  }finally{
+    syncBtn.disabled=false;
+    setStatus("Ready");
+  }
+}
+ 
+async function ask(){
+  const q=(qInput.value||"").trim();
+  if(!q) return;
+  qInput.value="";
+  addMsg("user", q);
+ 
+  setStatus("Thinking...");
+  sendBtn.disabled=true;
+  try{
+    const r = await fetch(`${API}/ask`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({question:q, want_chart: !!wantChartEl.checked})
+    });
+    const j = await r.json();
+    addMsg("assistant", j.answer || "");
+ 
+    if(j.chart){
+      chart.setOption(toOption(j.chart), true);
+      renderSources(j.chart.citations || j.citations || []);
+    } else {
+      chart.clear();
+      renderSources(j.citations || []);
+    }
+  }catch(e){
+    addMsg("assistant", `Ask failed: ${e}`);
+  }finally{
+    sendBtn.disabled=false;
+    setStatus("Ready");
+  }
+}
+ 
+syncBtn.addEventListener("click", sync);
+sendBtn.addEventListener("click", ask);
+qInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") ask(); });
+ 
+addMsg("assistant","1) Click Sync Confluence  2) Ask a question");

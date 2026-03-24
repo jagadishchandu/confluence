@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]==0.30.6
+pydantic
+pydantic-settings
+ 
+requests
+beautifulsoup4
+lxml
+ 
+boto3
+qdrant-client
+ 
+langchain
+langchain-core
+langchain-aws
+langchain-text-splitters
+langgraph

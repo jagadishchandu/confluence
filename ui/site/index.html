@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RAG Chart Bot</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="bg"></div>
+ 
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">RAG</div>
+      <div>
+        <div class="brandTitle">RAG Chart Bot</div>
+        <div class="brandSub">Confluence → Qdrant (local) → Bedrock</div>
+      </div>
+    </div>
+ 
+    <div class="actions">
+      <button id="syncBtn" class="btn btnPrimary">Sync Confluence</button>
+      <label class="toggle">
+        <input id="wantChart" type="checkbox" checked />
+        <span>Chart</span>
+      </label>
+    </div>
+  </header>
+ 
+  <main class="grid">
+    <section class="card">
+      <div class="cardHeader">
+        <div class="cardTitle">Assistant</div>
+        <div id="status" class="status">Ready</div>
+      </div>
+ 
+      <div id="chat" class="chat"></div>
+ 
+      <div class="composer">
+        <input id="q" class="input" placeholder='Ask: "Incidents by month"' autocomplete="off" />
+        <button id="sendBtn" class="btn">Send</button>
+      </div>
+    </section>
+ 
+    <section class="card">
+      <div class="cardHeader">
+        <div class="cardTitle">Chart</div>
+        <div class="chip">ECharts</div>
+      </div>
+ 
+      <div id="chart" class="chart"></div>
+ 
+      <div class="sources">
+        <div class="sourcesTitle">Sources</div>
+        <div id="sourcesList" class="sourcesList">No chart yet.</div>
+      </div>
+    </section>
+  </main>
+ 
+  <script src="./app.js"></script>
+</body>
+</html>
